@@ -43,8 +43,8 @@ Try out RChat live at: [a-random-chat.glitch.me](https://a-random-chat.glitch.me
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/brendmung/rchat.git
-cd rchat
+git clone https://github.com/brendmung/RChat.git
+cd RChat
 ```
 
 2. Install dependencies:
