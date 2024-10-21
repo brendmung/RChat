@@ -2,7 +2,11 @@
 
 A modern web-based chat application that allows users to have anonymous conversations with random partners. Built with Node.js, Socket.IO, and styled with Tailwind CSS, RChat provides an iMessage-inspired interface for seamless communication.
 
-![RChat Preview](/api/placeholder/800/400)
+## Live Demo
+
+Try out RChat live at: [a-random-chat.glitch.me](https://a-random-chat.glitch.me)
+
+[![Remix on Glitch](https://cdn.glitch.com/2703baf2-b643-4da7-ab91-7ee2a2d00b5b%2Fremix-button.svg)](https://glitch.com/edit/#!/a-random-chat)
 
 ## Features
 
@@ -39,7 +43,7 @@ A modern web-based chat application that allows users to have anonymous conversa
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/rchat.git
+git clone https://github.com/brendmung/rchat.git
 cd rchat
 ```
 
@@ -54,6 +58,13 @@ npm start
 ```
 
 4. Open your browser and navigate to `http://localhost:3000`
+
+### Quick Start with Glitch
+
+You can quickly remix this project on Glitch:
+1. Click the "Remix on Glitch" button above
+2. Wait for the project to load in Glitch's editor
+3. Your copy of the app will automatically start running
 
 ## Usage
 
@@ -94,4 +105,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Acknowledgments
 
 - Inspired by the classic Omegle chat platform
+- UI design influenced by Apple's iMessage
 - Built with modern web technologies and best practices
+
+## Support
+
+For support, please open an issue in the GitHub repository or contact the maintainers.
