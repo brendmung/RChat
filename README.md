@@ -105,6 +105,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Acknowledgments
 
 - Inspired by the classic Omegle chat platform
+- UI design influenced by Apple's iMessage
 - Built with modern web technologies and best practices
 
 ## Support
