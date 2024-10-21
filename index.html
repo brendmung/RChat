@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RChat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'imessage-bg': '#1c1c1e',
+                        'imessage-secondary': '#2c2c2e',
+                        'imessage-blue': '#0a84ff',
+                        'imessage-green': '#30d158',
+                        'imessage-gray': '#8e8e93',
+                        'imessage-gray-dark': '#3f3f42',
+                        'imessage-white': '#fff',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="bg-imessage-bg text-white h-screen flex items-center justify-center">
+    <!-- Main container: Full screen on mobile, limited size on desktop -->
+    <div class="w-full h-full lg:max-w-3xl lg:max-h-[90vh] bg-imessage-secondary rounded-none lg:rounded-3xl shadow-lg overflow-hidden flex flex-col">
+        <!-- Login Section -->
+        <div id="login" class="p-6 flex-grow flex flex-col justify-center">
+            <h2 class="text-2xl font-bold mb-6 text-center text-imessage-white">Enter Chat</h2>
+            <input id="username" type="text" placeholder="Username" maxlength="20" class="w-full p-3 mb-4 rounded-xl bg-imessage-bg text-white border-none focus:ring-2 focus:ring-imessage-blue">
+            <select id="gender" class="w-full p-3 mb-6 rounded-xl bg-imessage-bg text-white border-none focus:ring-2 focus:ring-imessage-blue">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+            </select>
+            <button onclick="register()" class="w-full bg-imessage-blue text-white p-3 rounded-xl hover:bg-opacity-80 transition duration-200">
+                <i class="fas fa-comments mr-2"></i>Start Chatting
+            </button>
+        </div>
+
+        <!-- Waiting Section -->
+        <div id="waiting" class="p-6 hidden flex-grow flex flex-col justify-center">
+            <h2 class="text-2xl font-bold mb-6 text-center text-imessage-white">Finding a chat partner...</h2>
+            <div class="flex justify-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-imessage-blue"></div>
+            </div>
+        </div>
+
+        <!-- Chat Section -->
+        <div id="chat" class="hidden flex flex-col h-full">
+            <!-- Chat Header -->
+            <div class="bg-imessage-secondary p-4 flex justify-between items-center border-b border-imessage-gray border-opacity-30">
+                <div class="chat-header text-xl font-semibold text-imessage-white"></div>
+                <button onclick="nextPartner()" class="bg-imessage-blue text-white px-4 py-2 rounded-full hover:bg-opacity-80 transition duration-200">
+                    <i class="fas fa-random mr-2"></i>Next
+                </button>
+            </div>
+
+            <!-- Chat Messages -->
+            <ul id="messages" class="flex-grow overflow-y-auto p-4 space-y-4"></ul>
+
+            <!-- Reply Indicator placed above the input field -->
+            <div id="replyIndicator" class="hidden text-sm italic text-gray-400 p-4 bg-imessage-secondary flex justify-between items-center"></div>
+
+            <div id="typing-indicator" class="text-sm italic text-imessage-gray px-4"></div>
+
+            <!-- Chat Input Form -->
+            <form id="chat-form" class="p-4 bg-imessage-secondary flex items-center space-x-2">
+                <button type="button" id="mediaButton" class="text-imessage-white p-2 rounded-full hover:bg-imessage-bg transition duration-200">
+                    <i class="fas fa-image text-xl"></i>
+                </button>
+                <input type="file" id="imageInput" accept="image/*" class="hidden">
+                <input id="m" autocomplete="off" maxlength="500" placeholder="Type your message..." class="flex-grow p-3 rounded-full bg-imessage-bg text-white border-none focus:ring-2 focus:ring-imessage-blue">
+                <button type="submit" class="text-imessage-white p-2 rounded-full hover:bg-imessage-bg transition duration-200">
+                    <i class="fas fa-paper-plane text-xl"></i>
+                </button>
+            </form>
+        </div>
+
+        <!-- Full Picture View Modal -->
+        <div id="fullPictureModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50">
+            <div class="max-w-3xl max-h-full p-4">
+                <img id="fullPictureImg" src="" alt="Full size image" class="max-w-full max-h-full object-contain">
+                <button onclick="closeFullPicture()" class="absolute top-4 right-4 text-white text-2xl">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script>
+        const socket = io();
+        let typingTimer;
+        let currentState = 'login';
+        let isSearching = false;
+
+        function register() {
+            const username = document.getElementById('username').value.trim();
+            const gender = document.getElementById('gender').value;
+            if (username) {
+                socket.emit('register', { username, gender });
+                switchToState('waiting');
+                isSearching = true;
+            } else {
+                alert('Please enter a username');
+            }
+        }
+
+        function nextPartner() {
+            if (currentState === 'chat') {
+                document.getElementById('messages').innerHTML = '';
+                document.getElementById('typing-indicator').textContent = '';
+                switchToState('waiting');
+                isSearching = true;
+                socket.emit('next partner');
+            }
+        }
+
+        function switchToState(state) {
+            currentState = state;
+            ['login', 'waiting', 'chat'].forEach(s => {
+                document.getElementById(s).style.display = s === state ? 'flex' : 'none';
+            });
+        }
+
+        socket.on('registration error', (message) => {
+            alert(message);
+        });
+
+        socket.on('waiting', () => {
+            switchToState('waiting');
+        });
+
+        socket.on('chat start', (data) => {
+            switchToState('chat');
+            isSearching = false;
+
+            const messagesEl = document.getElementById('messages');
+            messagesEl.innerHTML = '';
+
+            const chatHeader = document.querySelector('#chat .chat-header');
+            chatHeader.innerHTML = `<h2 class="text-xl font-bold">Chat with ${data.partnerName}</h2>`;
+
+            appendMessage('system', `You are now chatting with ${data.partnerName}`);
+            scrollToBottom();
+        });
+
+        socket.on('chat message', (data) => {
+            appendMessage('partner', data.message, data.sender, data.type === 'image' ? data.image : null, data.replyTo);
+            scrollToBottom();
+        });
+
+        socket.on('partner left', () => {
+            appendMessage('system', 'Your chat partner has left the conversation.');
+            document.getElementById('typing-indicator').textContent = '';
+            scrollToBottom();
+            setTimeout(() => {
+                if (currentState === 'chat') {
+                    nextPartner();
+                }
+            }, 60000);
+        });
+
+        socket.on('partner typing', (isTyping) => {
+            document.getElementById('typing-indicator').textContent = isTyping ? 'Partner is typing...' : '';
+        });
+
+        socket.on('inactive', () => {
+            alert('You have been disconnected due to inactivity.');
+            window.location.reload();
+        });
+
+        document.getElementById('chat-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const messageInput = document.getElementById('m');
+            const message = messageInput.value.trim();
+            const replyTo = document.getElementById('chat-form').dataset.replyTo ? JSON.parse(document.getElementById('chat-form').dataset.replyTo) : null;
+
+            if (message) {
+                socket.emit('chat message', { type: 'text', message: message, replyTo: replyTo });
+                appendMessage('you', message, 'You', null, replyTo);
+                messageInput.value = '';
+                removeReplyIndicator();
+                scrollToBottom();
+            }
+        });
+
+        document.getElementById('m').addEventListener('input', function() {
+            if (currentState === 'chat') {
+                clearTimeout(typingTimer);
+                socket.emit('typing', true);
+
+                typingTimer = setTimeout(() => {
+                    socket.emit('typing', false);
+                }, 1000);
+            }
+        });
+
+        document.getElementById('mediaButton').addEventListener('click', () => {
+            document.getElementById('imageInput').click();
+        });
+
+        document.getElementById('imageInput').addEventListener('change', function() {
+            const imageFile = this.files[0];
+            const replyTo = document.getElementById('chat-form').dataset.replyTo ? JSON.parse(document.getElementById('chat-form').dataset.replyTo) : null;
+            const maxSize = 5 * 1024 * 1024;
+
+            if (imageFile) {
+                if (imageFile.size > maxSize) {
+                    alert("File size exceeds the 5MB limit. Please select a smaller file.");
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const imageData = event.target.result;
+                    socket.emit('chat message', { type: 'image', image: imageData, replyTo: replyTo });
+                    appendMessage('you', null, 'You', imageData, replyTo);
+                    removeReplyIndicator();
+                    scrollToBottom();
+                };
+                reader.readAsDataURL(imageFile);
+                this.value = '';
+            }
+        });
+
+        <!-- Inside appendMessage function -->
+        function appendMessage(type, message, sender, image, replyTo) {
+            const messagesEl = document.getElementById('messages');
+            const li = document.createElement('li');
+
+            if (type === 'system') {
+                // Center the system message
+                li.className = 'flex justify-center';
+
+                li.innerHTML = `
+                    <div class="bg-imessage-gray bg-opacity-20 rounded-2xl p-3 max-w-[80%] text-center">
+                        <p class="text-imessage-gray">${escapeHtml(message)}</p>
+                    </div>
+                `;
+            } else {
+                // Set the message alignment and style for user/partner
+                li.className = `flex ${type === 'you' ? 'justify-end' : 'justify-start'}`;
+
+                let bgColor = type === 'you' ? 'bg-imessage-blue text-white' : 'bg-imessage-gray-dark text-white';
+                li.innerHTML = `
+                    <div class="group ${bgColor} rounded-2xl p-3 max-w-[80%]">
+                        ${replyTo ? `<div class="text-sm italic mb-1 text-imessage-gray">Replying to: ${escapeHtml(replyTo.message)}</div>` : ''}
+                        ${image ? `<img src="${image}" alt="Shared Image" class="max-w-full h-auto rounded-lg mt-1 cursor-pointer" onclick="openFullPicture('${image}')"/>` : `<p>${escapeHtml(message)}</p>`}
+                        <button onclick="replyToMessage('${escapeHtml(message)}', '${sender}')" class="text-sm underline mt-1 text-imessage-gray hidden group-hover:inline">Reply</button>
+                    </div>
+                `;
+            }
+
+            messagesEl.appendChild(li);
+            scrollToBottom();  // Ensure the latest message is visible
+        }
+
+
+        function replyToMessage(message, sender) {
+            const replyIndicator = document.getElementById('replyIndicator');
+
+            // Set the content of the reply indicator with a close (times) icon
+            replyIndicator.innerHTML = `
+                <span>Replying to ${sender}: ${message}</span>
+                <button class="text-imessage-blue ml-4" onclick="removeReplyIndicator()">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+
+            // Show the reply indicator
+            replyIndicator.classList.remove('hidden');
+
+            // Store the reply message in the form's dataset
+            const chatForm = document.getElementById('chat-form');
+            chatForm.dataset.replyTo = JSON.stringify({ message, sender });
+        }
+
+        function removeReplyIndicator() {
+            const replyIndicator = document.getElementById('replyIndicator');
+
+            // Clear and hide the reply indicator
+            replyIndicator.innerHTML = '';
+            replyIndicator.classList.add('hidden');
+
+            // Remove the reply-to data from the form
+            document.getElementById('chat-form').removeAttribute('data-reply-to');
+        }
+
+
+        function scrollToBottom() {
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+      
+        function openFullPicture(imageUrl) {
+            const modal = document.getElementById('fullPictureModal');
+            const img = document.getElementById('fullPictureImg');
+            img.src = imageUrl;
+            modal.classList.remove('hidden');
+        }
+
+        function closeFullPicture() {
+            const modal = document.getElementById('fullPictureModal');
+            modal.classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
